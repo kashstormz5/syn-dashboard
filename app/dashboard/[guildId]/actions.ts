@@ -5,10 +5,16 @@ import { auth } from "@/auth";
 import { getGuildById, getUserGuilds } from "@/lib/discord";
 import {
   createGuildLog,
+  upsertGuildControlPanel,
   upsertGuildModules,
   upsertGuildSettings
 } from "@/lib/guild-settings";
-import { defaultModules, GuildModules } from "@/models/guild-settings";
+import {
+  defaultControlPanel,
+  defaultModules,
+  GuildControlPanel,
+  GuildModules
+} from "@/models/guild-settings";
 
 export async function saveGuildSettings(formData: FormData) {
   const session = await auth();
@@ -117,4 +123,155 @@ export async function saveGuildModules(formData: FormData) {
   });
 
   redirect(`/dashboard/${guildId}/modules?saved=1`);
+}
+
+function limitText(value: unknown, maxLength: number) {
+  return String(value ?? "").trim().slice(0, maxLength);
+}
+
+function getBooleanValue(value: unknown, fallback: boolean) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (value === "true") {
+    return true;
+  }
+
+  if (value === "false") {
+    return false;
+  }
+
+  return fallback;
+}
+
+export async function saveControlPanelSettings(input: {
+  guildId: string;
+  settings: GuildControlPanel & {
+    prefix: string;
+    ownerId: string;
+    adminRoleId: string;
+    logChannelId: string;
+    welcomeMessage: string;
+  };
+}) {
+  const session = await auth();
+
+  if (!session?.user?.id || !session.accessToken) {
+    redirect("/");
+  }
+
+  const guildId = String(input.guildId ?? "");
+
+  if (!guildId) {
+    throw new Error("Guild id is required.");
+  }
+
+  const guilds = await getUserGuilds(session.accessToken);
+  const guild = getGuildById(guilds, guildId);
+
+  if (!guild) {
+    throw new Error("You do not have access to update this guild.");
+  }
+
+  const settings = input.settings;
+  const prefix = limitText(settings.prefix || "!", 5) || "!";
+  const ownerId = limitText(settings.ownerId, 64);
+  const adminRoleId = limitText(settings.adminRoleId, 64);
+  const logChannelId = limitText(settings.logChannelId, 64);
+  const welcomeMessage = limitText(settings.welcomeMessage, 2000);
+
+  const controlPanel: GuildControlPanel = {
+    moderation: {
+      antiSpam: getBooleanValue(
+        settings.moderation?.antiSpam,
+        defaultControlPanel.moderation.antiSpam
+      ),
+      autoDeleteInvites: getBooleanValue(
+        settings.moderation?.autoDeleteInvites,
+        defaultControlPanel.moderation.autoDeleteInvites
+      ),
+      modAction:
+        limitText(settings.moderation?.modAction, 32) ||
+        defaultControlPanel.moderation.modAction,
+      modAlertChannel: limitText(settings.moderation?.modAlertChannel, 64),
+      auditLogs: getBooleanValue(
+        settings.moderation?.auditLogs,
+        defaultControlPanel.moderation.auditLogs
+      )
+    },
+    welcome: {
+      enabled: getBooleanValue(
+        settings.welcome?.enabled,
+        defaultControlPanel.welcome.enabled
+      ),
+      channelId: limitText(settings.welcome?.channelId, 64),
+      message: limitText(settings.welcome?.message, 2000) || welcomeMessage
+    },
+    logging: {
+      enabled: getBooleanValue(
+        settings.logging?.enabled,
+        defaultControlPanel.logging.enabled
+      ),
+      channelId: limitText(settings.logging?.channelId, 64) || logChannelId,
+      mode:
+        limitText(settings.logging?.mode, 32) ||
+        defaultControlPanel.logging.mode,
+      includeDashboardChanges: getBooleanValue(
+        settings.logging?.includeDashboardChanges,
+        defaultControlPanel.logging.includeDashboardChanges
+      )
+    },
+    autoRoles: {
+      enabled: getBooleanValue(
+        settings.autoRoles?.enabled,
+        defaultControlPanel.autoRoles.enabled
+      ),
+      roleId: limitText(settings.autoRoles?.roleId, 64) || adminRoleId,
+      delay:
+        limitText(settings.autoRoles?.delay, 32) ||
+        defaultControlPanel.autoRoles.delay
+    },
+    server: {
+      language:
+        limitText(settings.server?.language, 32) ||
+        defaultControlPanel.server.language,
+      timezone:
+        limitText(settings.server?.timezone, 64) ||
+        defaultControlPanel.server.timezone,
+      accentColor:
+        limitText(settings.server?.accentColor, 16) ||
+        defaultControlPanel.server.accentColor
+    }
+  };
+
+  await upsertGuildSettings({
+    guildId,
+    prefix,
+    ownerId,
+    adminRoleId,
+    logChannelId,
+    welcomeMessage,
+    updatedBy: session.user.id
+  });
+
+  await upsertGuildControlPanel({
+    guildId,
+    controlPanel,
+    updatedBy: session.user.id
+  });
+
+  await createGuildLog({
+    guildId,
+    actorId: session.user.id,
+    actorName: session.user.name ?? "Discord User",
+    source: "dashboard",
+    level: "success",
+    action: "Control panel settings updated",
+    details: `Saved Syn panel settings for overview, moderation, welcome, logging, auto roles, and server preferences.`
+  });
+
+  return {
+    ok: true
+  };
 }

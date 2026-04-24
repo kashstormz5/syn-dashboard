@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { saveControlPanelSettings } from "@/app/dashboard/[guildId]/actions";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { SelectSetting } from "@/components/select-setting";
 import { SettingCard } from "@/components/setting-card";
@@ -8,11 +9,13 @@ import { SidebarModule } from "@/components/sidebar";
 import { TextInputSetting } from "@/components/text-input-setting";
 import { ToggleSetting } from "@/components/toggle-setting";
 import { DiscordGuild, getDiscordGuildIconUrl } from "@/lib/discord";
+import { GuildControlPanel } from "@/models/guild-settings";
 
 type SynControlPanelProps = {
   guild: DiscordGuild;
   initialSettings: {
     adminRoleId: string;
+    controlPanel: GuildControlPanel;
     guildId: string;
     logChannelId: string;
     ownerId: string;
@@ -22,35 +25,31 @@ type SynControlPanelProps = {
 };
 
 type PanelState = {
-  antiSpam: boolean;
-  auditLogs: boolean;
-  autoDeleteInvites: boolean;
-  autoRoleDelay: string;
-  autoRoleEnabled: boolean;
-  autoRoleId: string;
-  colorAccent: string;
-  language: string;
-  logChannelId: string;
-  loggingEnabled: boolean;
-  loggingMode: string;
-  modAction: string;
-  modAlertChannel: string;
+  moderation: GuildControlPanel["moderation"];
+  welcome: GuildControlPanel["welcome"];
+  logging: GuildControlPanel["logging"];
+  autoRoles: GuildControlPanel["autoRoles"];
+  server: GuildControlPanel["server"];
   ownerId: string;
   prefix: string;
-  serverLocale: string;
-  welcomeChannel: string;
-  welcomeEnabled: boolean;
   welcomeMessage: string;
   adminRoleId: string;
+  logChannelId: string;
 };
 
 function ModuleHeader({
   badge,
   description,
+  isSaving,
+  onSave,
+  saveState,
   title
 }: {
   badge: string;
   description: string;
+  isSaving: boolean;
+  onSave: () => void;
+  saveState: "idle" | "saved" | "error";
   title: string;
 }) {
   return (
@@ -68,10 +67,18 @@ function ModuleHeader({
       </div>
 
       <button
-        className="inline-flex h-11 items-center justify-center rounded-2xl bg-syn-500 px-5 text-sm font-semibold text-white shadow-lg shadow-syn-500/20 transition hover:bg-syn-400"
+        className="inline-flex h-11 items-center justify-center rounded-2xl bg-syn-500 px-5 text-sm font-semibold text-white shadow-lg shadow-syn-500/20 transition hover:bg-syn-400 disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={isSaving}
+        onClick={onSave}
         type="button"
       >
-        Save changes
+        {isSaving
+          ? "Saving..."
+          : saveState === "saved"
+            ? "Saved"
+            : saveState === "error"
+              ? "Retry save"
+              : "Save changes"}
       </button>
     </header>
   );
@@ -82,26 +89,18 @@ export function SynControlPanel({
   initialSettings
 }: SynControlPanelProps) {
   const [activeModule, setActiveModule] = useState<SidebarModule>("Overview");
+  const [saveState, setSaveState] = useState<"idle" | "saved" | "error">("idle");
+  const [isSaving, startSaving] = useTransition();
   const [state, setState] = useState<PanelState>({
     adminRoleId: initialSettings.adminRoleId,
-    antiSpam: true,
-    auditLogs: true,
-    autoDeleteInvites: false,
-    autoRoleDelay: "instant",
-    autoRoleEnabled: true,
-    autoRoleId: initialSettings.adminRoleId,
-    colorAccent: "#5B7CFF",
-    language: "en",
     logChannelId: initialSettings.logChannelId,
-    loggingEnabled: true,
-    loggingMode: "important",
-    modAction: "timeout",
-    modAlertChannel: initialSettings.logChannelId,
+    moderation: initialSettings.controlPanel.moderation,
+    welcome: initialSettings.controlPanel.welcome,
+    logging: initialSettings.controlPanel.logging,
+    autoRoles: initialSettings.controlPanel.autoRoles,
+    server: initialSettings.controlPanel.server,
     ownerId: initialSettings.ownerId,
     prefix: initialSettings.prefix,
-    serverLocale: "europe-london",
-    welcomeChannel: initialSettings.logChannelId,
-    welcomeEnabled: true,
     welcomeMessage: initialSettings.welcomeMessage
   });
 
@@ -112,6 +111,57 @@ export function SynControlPanel({
       ...current,
       [key]: value
     }));
+    setSaveState("idle");
+  };
+
+  const setNestedValue = <
+    K extends "moderation" | "welcome" | "logging" | "autoRoles" | "server",
+    P extends keyof PanelState[K]
+  >(
+    key: K,
+    prop: P,
+    value: PanelState[K][P]
+  ) => {
+    setState((current) => ({
+      ...current,
+      [key]: {
+        ...current[key],
+        [prop]: value
+      }
+    }));
+    setSaveState("idle");
+  };
+
+  const handleSave = () => {
+    startSaving(async () => {
+      try {
+        const result = await saveControlPanelSettings({
+          guildId: initialSettings.guildId,
+          settings: {
+            prefix: state.prefix,
+            ownerId: state.ownerId,
+            adminRoleId: state.adminRoleId,
+            logChannelId: state.logChannelId,
+            welcomeMessage: state.welcomeMessage,
+            moderation: state.moderation,
+            welcome: {
+              ...state.welcome,
+              message: state.welcomeMessage
+            },
+            logging: {
+              ...state.logging,
+              channelId: state.logChannelId
+            },
+            autoRoles: state.autoRoles,
+            server: state.server
+          }
+        });
+
+        setSaveState(result.ok ? "saved" : "error");
+      } catch {
+        setSaveState("error");
+      }
+    });
   };
 
   return (
@@ -149,13 +199,13 @@ export function SynControlPanel({
           <div className="surface-muted p-4">
             <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Logging</p>
             <p className="mt-2 text-lg font-semibold text-white">
-              {state.loggingEnabled ? "Enabled" : "Off"}
+              {state.logging.enabled ? "Enabled" : "Off"}
             </p>
           </div>
           <div className="surface-muted p-4">
             <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Auto Roles</p>
             <p className="mt-2 text-lg font-semibold text-white">
-              {state.autoRoleEnabled ? "Ready" : "Off"}
+              {state.autoRoles.enabled ? "Ready" : "Off"}
             </p>
           </div>
           <div className="surface-muted p-4">
@@ -172,6 +222,9 @@ export function SynControlPanel({
           <ModuleHeader
             badge="Overview"
             description="A clean home for the most important Syn bot settings in this server."
+            isSaving={isSaving}
+            onSave={handleSave}
+            saveState={saveState}
             title="Bot overview"
           />
           <div className="grid gap-6 xl:grid-cols-[1.1fr,0.9fr]">
@@ -251,6 +304,9 @@ export function SynControlPanel({
           <ModuleHeader
             badge="Moderation"
             description="Centralize the core moderation behavior for Syn in one place."
+            isSaving={isSaving}
+            onSave={handleSave}
+            saveState={saveState}
             title="Moderation controls"
           />
           <div className="grid gap-6 xl:grid-cols-2">
@@ -259,27 +315,29 @@ export function SynControlPanel({
               title="Automation"
             >
               <ToggleSetting
-                checked={state.antiSpam}
+                checked={state.moderation.antiSpam}
                 description="Watch repeated messages and bursts automatically."
                 label="Anti-spam protection"
-                onChange={(value) => setValue("antiSpam", value)}
+                onChange={(value) => setNestedValue("moderation", "antiSpam", value)}
               />
               <ToggleSetting
-                checked={state.autoDeleteInvites}
+                checked={state.moderation.autoDeleteInvites}
                 description="Remove invite links from non-admin members."
                 label="Auto-delete invites"
-                onChange={(value) => setValue("autoDeleteInvites", value)}
+                onChange={(value) =>
+                  setNestedValue("moderation", "autoDeleteInvites", value)
+                }
               />
               <SelectSetting
                 description="Choose the default moderation action for flagged behavior."
                 label="Default action"
-                onChange={(value) => setValue("modAction", value)}
+                onChange={(value) => setNestedValue("moderation", "modAction", value)}
                 options={[
                   { label: "Timeout", value: "timeout" },
                   { label: "Warn", value: "warn" },
                   { label: "Kick", value: "kick" }
                 ]}
-                value={state.modAction}
+                value={state.moderation.modAction}
               />
             </SettingCard>
 
@@ -290,15 +348,17 @@ export function SynControlPanel({
               <TextInputSetting
                 description="Where Syn should post moderation alerts."
                 label="Alert Channel"
-                onChange={(value) => setValue("modAlertChannel", value)}
+                onChange={(value) =>
+                  setNestedValue("moderation", "modAlertChannel", value)
+                }
                 placeholder="Channel ID"
-                value={state.modAlertChannel}
+                value={state.moderation.modAlertChannel}
               />
               <ToggleSetting
-                checked={state.auditLogs}
+                checked={state.moderation.auditLogs}
                 description="Write moderation actions to the logging feed."
                 label="Mirror to audit logs"
-                onChange={(value) => setValue("auditLogs", value)}
+                onChange={(value) => setNestedValue("moderation", "auditLogs", value)}
               />
             </SettingCard>
           </div>
@@ -310,6 +370,9 @@ export function SynControlPanel({
           <ModuleHeader
             badge="Welcome"
             description="Set the first impression for new members with a clean welcome workflow."
+            isSaving={isSaving}
+            onSave={handleSave}
+            saveState={saveState}
             title="Welcome messages"
           />
           <div className="grid gap-6 xl:grid-cols-[0.95fr,1.05fr]">
@@ -318,17 +381,17 @@ export function SynControlPanel({
               title="Delivery"
             >
               <ToggleSetting
-                checked={state.welcomeEnabled}
+                checked={state.welcome.enabled}
                 description="Enable welcome messages for new joins."
                 label="Welcome messages enabled"
-                onChange={(value) => setValue("welcomeEnabled", value)}
+                onChange={(value) => setNestedValue("welcome", "enabled", value)}
               />
               <TextInputSetting
                 description="Channel where welcome messages should appear."
                 label="Welcome Channel ID"
-                onChange={(value) => setValue("welcomeChannel", value)}
+                onChange={(value) => setNestedValue("welcome", "channelId", value)}
                 placeholder="Channel ID"
-                value={state.welcomeChannel}
+                value={state.welcome.channelId}
               />
             </SettingCard>
 
@@ -339,7 +402,10 @@ export function SynControlPanel({
               <TextInputSetting
                 label="Welcome Message"
                 multiline
-                onChange={(value) => setValue("welcomeMessage", value)}
+                onChange={(value) => {
+                  setValue("welcomeMessage", value);
+                  setNestedValue("welcome", "message", value);
+                }}
                 placeholder="Welcome to Syn."
                 value={state.welcomeMessage}
               />
@@ -353,6 +419,9 @@ export function SynControlPanel({
           <ModuleHeader
             badge="Logging"
             description="Choose what Syn records and where the activity feed should be sent."
+            isSaving={isSaving}
+            onSave={handleSave}
+            saveState={saveState}
             title="Logging configuration"
           />
           <div className="grid gap-6 xl:grid-cols-2">
@@ -361,15 +430,18 @@ export function SynControlPanel({
               title="Log routing"
             >
               <ToggleSetting
-                checked={state.loggingEnabled}
+                checked={state.logging.enabled}
                 description="Enable Syn event logging across this guild."
                 label="Logging enabled"
-                onChange={(value) => setValue("loggingEnabled", value)}
+                onChange={(value) => setNestedValue("logging", "enabled", value)}
               />
               <TextInputSetting
                 description="Channel where logs should be sent."
                 label="Log Channel ID"
-                onChange={(value) => setValue("logChannelId", value)}
+                onChange={(value) => {
+                  setValue("logChannelId", value);
+                  setNestedValue("logging", "channelId", value);
+                }}
                 placeholder="Channel ID"
                 value={state.logChannelId}
               />
@@ -382,19 +454,21 @@ export function SynControlPanel({
               <SelectSetting
                 description="Choose how detailed the log stream should be."
                 label="Logging mode"
-                onChange={(value) => setValue("loggingMode", value)}
+                onChange={(value) => setNestedValue("logging", "mode", value)}
                 options={[
                   { label: "Important only", value: "important" },
                   { label: "Moderation + system", value: "balanced" },
                   { label: "Verbose feed", value: "verbose" }
                 ]}
-                value={state.loggingMode}
+                value={state.logging.mode}
               />
               <ToggleSetting
-                checked={state.auditLogs}
+                checked={state.logging.includeDashboardChanges}
                 description="Mirror dashboard saves into the logging feed."
                 label="Include dashboard changes"
-                onChange={(value) => setValue("auditLogs", value)}
+                onChange={(value) =>
+                  setNestedValue("logging", "includeDashboardChanges", value)
+                }
               />
             </SettingCard>
           </div>
@@ -406,6 +480,9 @@ export function SynControlPanel({
           <ModuleHeader
             badge="Auto Roles"
             description="Assign starter roles automatically when members join your server."
+            isSaving={isSaving}
+            onSave={handleSave}
+            saveState={saveState}
             title="Auto role setup"
           />
           <div className="grid gap-6 xl:grid-cols-2">
@@ -414,28 +491,28 @@ export function SynControlPanel({
               title="Role assignment"
             >
               <ToggleSetting
-                checked={state.autoRoleEnabled}
+                checked={state.autoRoles.enabled}
                 description="Turn automatic role assignment on or off."
                 label="Auto roles enabled"
-                onChange={(value) => setValue("autoRoleEnabled", value)}
+                onChange={(value) => setNestedValue("autoRoles", "enabled", value)}
               />
               <TextInputSetting
                 description="The role ID Syn should assign to new members."
                 label="Role ID"
-                onChange={(value) => setValue("autoRoleId", value)}
+                onChange={(value) => setNestedValue("autoRoles", "roleId", value)}
                 placeholder="Discord role ID"
-                value={state.autoRoleId}
+                value={state.autoRoles.roleId}
               />
               <SelectSetting
                 description="Delay the role assignment if needed."
                 label="Assignment timing"
-                onChange={(value) => setValue("autoRoleDelay", value)}
+                onChange={(value) => setNestedValue("autoRoles", "delay", value)}
                 options={[
                   { label: "Instant", value: "instant" },
                   { label: "After 1 minute", value: "1m" },
                   { label: "After 10 minutes", value: "10m" }
                 ]}
-                value={state.autoRoleDelay}
+                value={state.autoRoles.delay}
               />
             </SettingCard>
           </div>
@@ -447,6 +524,9 @@ export function SynControlPanel({
           <ModuleHeader
             badge="Server Settings"
             description="Small server-wide preferences that shape how Syn feels in this guild."
+            isSaving={isSaving}
+            onSave={handleSave}
+            saveState={saveState}
             title="Server settings"
           />
           <div className="grid gap-6 xl:grid-cols-2">
@@ -456,23 +536,23 @@ export function SynControlPanel({
             >
               <SelectSetting
                 label="Language"
-                onChange={(value) => setValue("language", value)}
+                onChange={(value) => setNestedValue("server", "language", value)}
                 options={[
                   { label: "English", value: "en" },
                   { label: "Spanish", value: "es" },
                   { label: "French", value: "fr" }
                 ]}
-                value={state.language}
+                value={state.server.language}
               />
               <SelectSetting
                 label="Timezone"
-                onChange={(value) => setValue("serverLocale", value)}
+                onChange={(value) => setNestedValue("server", "timezone", value)}
                 options={[
                   { label: "Europe / London", value: "europe-london" },
                   { label: "America / New York", value: "america-new-york" },
                   { label: "Europe / Dublin", value: "europe-dublin" }
                 ]}
-                value={state.serverLocale}
+                value={state.server.timezone}
               />
             </SettingCard>
 
@@ -483,9 +563,9 @@ export function SynControlPanel({
               <TextInputSetting
                 description="Accent color used by future embed-style UI."
                 label="Accent Color"
-                onChange={(value) => setValue("colorAccent", value)}
+                onChange={(value) => setNestedValue("server", "accentColor", value)}
                 placeholder="#5B7CFF"
-                value={state.colorAccent}
+                value={state.server.accentColor}
               />
             </SettingCard>
           </div>

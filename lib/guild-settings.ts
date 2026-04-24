@@ -1,7 +1,9 @@
 import { connectToDatabase } from "@/lib/mongodb";
 import { GuildLog } from "@/models/guild-log";
 import {
+  defaultControlPanel,
   defaultModules,
+  GuildControlPanel,
   GuildModules,
   GuildSettings
 } from "@/models/guild-settings";
@@ -19,6 +21,12 @@ export type GuildSettingsValues = {
 export type GuildModuleValues = {
   guildId: string;
   modules: GuildModules;
+  updatedBy: string;
+};
+
+export type GuildControlPanelValues = {
+  guildId: string;
+  controlPanel: GuildControlPanel;
   updatedBy: string;
 };
 
@@ -43,6 +51,7 @@ export async function getGuildSettings(guildId: string) {
     logChannelId: string;
     welcomeMessage: string;
     modules?: Partial<GuildModules>;
+    controlPanel?: Partial<GuildControlPanel>;
   } | null>();
 
   if (!doc) {
@@ -53,7 +62,8 @@ export async function getGuildSettings(guildId: string) {
       adminRoleId: "",
       logChannelId: "",
       welcomeMessage: "Welcome to the server.",
-      modules: defaultModules
+      modules: defaultModules,
+      controlPanel: defaultControlPanel
     };
   }
 
@@ -67,6 +77,30 @@ export async function getGuildSettings(guildId: string) {
     modules: {
       ...defaultModules,
       ...doc.modules
+    },
+    controlPanel: {
+      ...defaultControlPanel,
+      ...doc.controlPanel,
+      moderation: {
+        ...defaultControlPanel.moderation,
+        ...doc.controlPanel?.moderation
+      },
+      welcome: {
+        ...defaultControlPanel.welcome,
+        ...doc.controlPanel?.welcome
+      },
+      logging: {
+        ...defaultControlPanel.logging,
+        ...doc.controlPanel?.logging
+      },
+      autoRoles: {
+        ...defaultControlPanel.autoRoles,
+        ...doc.controlPanel?.autoRoles
+      },
+      server: {
+        ...defaultControlPanel.server,
+        ...doc.controlPanel?.server
+      }
     }
   };
 }
@@ -88,7 +122,8 @@ export async function getGuildSettingsSafe(guildId: string) {
         adminRoleId: "",
         logChannelId: "",
         welcomeMessage: "Welcome to the server.",
-        modules: defaultModules
+        modules: defaultModules,
+        controlPanel: defaultControlPanel
       },
       error:
         "MongoDB could not return this server's saved settings right now. Check your database connection and Atlas network access."
@@ -127,6 +162,25 @@ export async function upsertGuildModules(values: GuildModuleValues) {
     {
       $set: {
         modules: values.modules,
+        updatedBy: values.updatedBy
+      }
+    },
+    {
+      new: true,
+      upsert: true,
+      setDefaultsOnInsert: true
+    }
+  );
+}
+
+export async function upsertGuildControlPanel(values: GuildControlPanelValues) {
+  await connectToDatabase();
+
+  return GuildSettings.findOneAndUpdate(
+    { guildId: values.guildId },
+    {
+      $set: {
+        controlPanel: values.controlPanel,
         updatedBy: values.updatedBy
       }
     },
