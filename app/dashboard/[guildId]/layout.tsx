@@ -1,7 +1,7 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { GuildShell } from "@/components/guild-shell";
-import { getRequiredGuild } from "@/lib/discord";
+import { createFallbackGuild, getRequiredGuild } from "@/lib/discord";
 
 type GuildLayoutProps = {
   children: React.ReactNode;
@@ -21,11 +21,7 @@ export default async function GuildLayout({
   }
 
   const { guildId } = await params;
-  const guild = await getRequiredGuild(session.accessToken, guildId);
-
-  if (!guild) {
-    notFound();
-  }
+  const guild = (await getRequiredGuild(session.accessToken, guildId)) ?? createFallbackGuild(guildId);
 
   return (
     <main className="shell">

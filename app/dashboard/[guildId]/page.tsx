@@ -1,7 +1,7 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { GuildDashboardForm } from "@/components/guild-dashboard-form";
-import { getRequiredGuild } from "@/lib/discord";
+import { createFallbackGuild, getRequiredGuild } from "@/lib/discord";
 import { getGuildSettingsSafe } from "@/lib/guild-settings";
 
 type GuildDashboardPageProps = {
@@ -27,10 +27,7 @@ export default async function GuildDashboardPage({
     getRequiredGuild(session.accessToken, guildId),
     getGuildSettingsSafe(guildId)
   ]);
-
-  if (!guild) {
-    notFound();
-  }
+  const resolvedGuild = guild ?? createFallbackGuild(guildId);
 
   return (
     <>
@@ -56,7 +53,13 @@ export default async function GuildDashboardPage({
         <div className="error">{settingsResult.error}</div>
       ) : null}
 
-      <GuildDashboardForm guild={guild} initialSettings={settingsResult.settings} />
+      {!guild ? (
+        <div className="notice">
+          Discord did not return full server details on this visit, but you can still view stored dashboard settings for this server.
+        </div>
+      ) : null}
+
+      <GuildDashboardForm guild={resolvedGuild} initialSettings={settingsResult.settings} />
     </>
   );
 }

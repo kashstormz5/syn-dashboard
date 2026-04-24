@@ -64,6 +64,16 @@ export function getGuildById(guilds: DiscordGuild[], guildId: string) {
   return guilds.find((guild) => guild.id === guildId);
 }
 
+export function createFallbackGuild(guildId: string): DiscordGuild {
+  return {
+    id: guildId,
+    name: "Selected server",
+    icon: null,
+    owner: false,
+    permissions: "0"
+  };
+}
+
 export const getRequiredGuild = cache(
   async (accessToken: string, guildId: string) => {
     const { guilds } = await getUserGuildsSafe(accessToken);
