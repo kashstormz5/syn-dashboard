@@ -14,24 +14,28 @@ export default async function DashboardPage() {
   const { guilds, error } = await getUserGuildsSafe(session.accessToken);
 
   return (
-    <main className="shell">
-      <div className="container stack">
-        <section className="dashboard-hero card">
-          <div className="dashboard-hero-copy">
-            <p className="section-kicker">Control center</p>
-            <h1 className="page-title">
-              {session.user?.name ?? "Discord User"}&apos;s guild workspace
+    <main className="min-h-screen px-4 py-6 lg:px-8 lg:py-10">
+      <div className="mx-auto flex max-w-7xl flex-col gap-6">
+        <section className="surface flex flex-col gap-6 p-6 lg:flex-row lg:items-end lg:justify-between lg:p-8">
+          <div className="max-w-3xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+              Syn workspace
+            </p>
+            <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white lg:text-5xl">
+              Choose a server to manage
             </h1>
-            <p className="helper">
-              Pick a server to open its dashboard, manage modules, and inspect
-              bot activity from one cleaner admin experience.
+            <p className="mt-3 text-sm leading-7 text-slate-400 lg:text-base">
+              Open a polished control panel for moderation, welcome messages,
+              logging, auto roles, and server-wide Syn settings.
             </p>
           </div>
 
-          <div className="dashboard-hero-actions">
-            <div className="hero-stat">
-              <span className="stat-label">Manageable servers</span>
-              <strong>{guilds.length}</strong>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="surface-muted px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                Servers
+              </p>
+              <p className="mt-2 text-2xl font-semibold text-white">{guilds.length}</p>
             </div>
             <form
               action={async () => {
@@ -39,7 +43,10 @@ export default async function DashboardPage() {
                 await signOut({ redirectTo: "/" });
               }}
             >
-              <button className="button-secondary" type="submit">
+              <button
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm font-medium text-slate-200 transition hover:bg-white/[0.08]"
+                type="submit"
+              >
                 Sign out
               </button>
             </form>
@@ -47,31 +54,28 @@ export default async function DashboardPage() {
         </section>
 
         {guilds.length > 0 ? (
-          <section className="server-section">
-            <div className="section-heading">
-              <div>
-                <p className="section-kicker">Servers</p>
-                <h2>Choose a server to manage</h2>
-              </div>
-            </div>
-
-            <div className="grid guild-grid">
-              {guilds.map((guild) => (
-                <GuildCard key={guild.id} guild={guild} />
-              ))}
-            </div>
+          <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {guilds.map((guild) => (
+              <GuildCard key={guild.id} guild={guild} />
+            ))}
           </section>
         ) : (
-          <section className="card settings-card">
-            <div className="error">
+          <section className="surface p-6">
+            <div className="rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-100">
               {error ??
                 "No guilds were returned. Make sure the Discord account has server access and the OAuth app includes the `guilds` scope."}
             </div>
-            <div className="inline" style={{ marginTop: 16 }}>
-              <Link className="button" href="/">
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link
+                className="inline-flex h-11 items-center justify-center rounded-2xl bg-syn-500 px-4 text-sm font-semibold text-white"
+                href="/"
+              >
                 Back to login
               </Link>
-              <Link className="button-secondary" href="/dashboard">
+              <Link
+                className="inline-flex h-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm font-medium text-slate-200"
+                href="/dashboard"
+              >
                 Refresh
               </Link>
             </div>
