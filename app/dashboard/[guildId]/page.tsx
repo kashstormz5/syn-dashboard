@@ -53,12 +53,6 @@ export default async function GuildDashboardPage({
         <div className="error">{settingsResult.error}</div>
       ) : null}
 
-      {!guild ? (
-        <div className="notice">
-          Discord did not return full server details on this visit, but you can still view stored dashboard settings for this server.
-        </div>
-      ) : null}
-
       <GuildDashboardForm guild={resolvedGuild} initialSettings={settingsResult.settings} />
     </>
   );
