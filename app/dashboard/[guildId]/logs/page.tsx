@@ -1,5 +1,5 @@
 import { LogList } from "@/components/log-list";
-import { getGuildLogs } from "@/lib/guild-settings";
+import { getGuildLogsSafe } from "@/lib/guild-settings";
 
 type GuildLogsPageProps = {
   params: Promise<{
@@ -9,7 +9,7 @@ type GuildLogsPageProps = {
 
 export default async function GuildLogsPage({ params }: GuildLogsPageProps) {
   const { guildId } = await params;
-  const logs = await getGuildLogs(guildId);
+  const logsResult = await getGuildLogsSafe(guildId);
 
   return (
     <>
@@ -24,7 +24,9 @@ export default async function GuildLogsPage({ params }: GuildLogsPageProps) {
         </div>
       </header>
 
-      <LogList logs={logs} />
+      {logsResult.error ? <div className="error">{logsResult.error}</div> : null}
+
+      <LogList logs={logsResult.logs} />
     </>
   );
 }

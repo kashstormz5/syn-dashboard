@@ -1,5 +1,5 @@
 import { ModuleToggleForm } from "@/components/module-toggle-form";
-import { getGuildSettings } from "@/lib/guild-settings";
+import { getGuildSettingsSafe } from "@/lib/guild-settings";
 
 type GuildModulesPageProps = {
   params: Promise<{
@@ -16,7 +16,7 @@ export default async function GuildModulesPage({
 }: GuildModulesPageProps) {
   const { guildId } = await params;
   const { saved } = await searchParams;
-  const settings = await getGuildSettings(guildId);
+  const settingsResult = await getGuildSettingsSafe(guildId);
 
   return (
     <>
@@ -33,7 +33,11 @@ export default async function GuildModulesPage({
 
       {saved === "1" ? <div className="notice">Modules updated.</div> : null}
 
-      <ModuleToggleForm guildId={guildId} modules={settings.modules} />
+      {settingsResult.error ? (
+        <div className="error">{settingsResult.error}</div>
+      ) : null}
+
+      <ModuleToggleForm guildId={guildId} modules={settingsResult.settings.modules} />
     </>
   );
 }

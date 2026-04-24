@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { GuildDashboardForm } from "@/components/guild-dashboard-form";
 import { getRequiredGuild } from "@/lib/discord";
-import { getGuildSettings } from "@/lib/guild-settings";
+import { getGuildSettingsSafe } from "@/lib/guild-settings";
 
 type GuildDashboardPageProps = {
   params: Promise<{
@@ -23,9 +23,9 @@ export default async function GuildDashboardPage({
   }
   const { guildId } = await params;
   const { saved } = await searchParams;
-  const [guild, settings] = await Promise.all([
+  const [guild, settingsResult] = await Promise.all([
     getRequiredGuild(session.accessToken, guildId),
-    getGuildSettings(guildId)
+    getGuildSettingsSafe(guildId)
   ]);
 
   if (!guild) {
@@ -52,7 +52,11 @@ export default async function GuildDashboardPage({
         <div className="notice">Dashboard settings saved.</div>
       ) : null}
 
-      <GuildDashboardForm guild={guild} initialSettings={settings} />
+      {settingsResult.error ? (
+        <div className="error">{settingsResult.error}</div>
+      ) : null}
+
+      <GuildDashboardForm guild={guild} initialSettings={settingsResult.settings} />
     </>
   );
 }

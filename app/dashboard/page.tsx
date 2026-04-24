@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
-import { getUserGuilds } from "@/lib/discord";
+import { getUserGuildsSafe } from "@/lib/discord";
 import { GuildCard } from "@/components/guild-card";
 
 export default async function DashboardPage() {
@@ -11,7 +11,7 @@ export default async function DashboardPage() {
     redirect("/");
   }
 
-  const guilds = await getUserGuilds(session.accessToken);
+  const { guilds, error } = await getUserGuildsSafe(session.accessToken);
 
   return (
     <main className="shell">
@@ -56,20 +56,23 @@ export default async function DashboardPage() {
             </div>
 
             <div className="grid guild-grid">
-            {guilds.map((guild) => (
-              <GuildCard key={guild.id} guild={guild} />
-            ))}
+              {guilds.map((guild) => (
+                <GuildCard key={guild.id} guild={guild} />
+              ))}
             </div>
           </section>
         ) : (
           <section className="card settings-card">
             <div className="error">
-              No guilds were returned. Make sure the Discord account has server
-              access and the OAuth app includes the `guilds` scope.
+              {error ??
+                "No guilds were returned. Make sure the Discord account has server access and the OAuth app includes the `guilds` scope."}
             </div>
             <div className="inline" style={{ marginTop: 16 }}>
               <Link className="button" href="/">
                 Back to login
+              </Link>
+              <Link className="button-secondary" href="/dashboard">
+                Refresh
               </Link>
             </div>
           </section>

@@ -18,13 +18,15 @@ export async function saveGuildSettings(formData: FormData) {
   }
 
   const guildId = String(formData.get("guildId") ?? "");
-  const prefix = String(formData.get("prefix") ?? "!")
+const prefix = String(formData.get("prefix") ?? "!")
+  .trim()
+  .slice(0, 5) || "!";
+  const ownerId = String(formData.get("ownerId") ?? "").trim().slice(0, 64);
+  const adminRoleId = String(formData.get("adminRoleId") ?? "").trim().slice(0, 64);
+  const logChannelId = String(formData.get("logChannelId") ?? "").trim().slice(0, 64);
+  const welcomeMessage = String(formData.get("welcomeMessage") ?? "")
     .trim()
-    .slice(0, 5) || "!";
-  const ownerId = String(formData.get("ownerId") ?? "").trim();
-  const adminRoleId = String(formData.get("adminRoleId") ?? "").trim();
-  const logChannelId = String(formData.get("logChannelId") ?? "");
-  const welcomeMessage = String(formData.get("welcomeMessage") ?? "");
+    .slice(0, 2000);
 
   if (!guildId) {
     throw new Error("Guild id is required.");

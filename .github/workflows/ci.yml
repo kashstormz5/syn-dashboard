@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+        env:
+          AUTH_SECRET: ci-placeholder-secret
+          AUTH_DISCORD_ID: ci-placeholder-discord-id
+          AUTH_DISCORD_SECRET: ci-placeholder-discord-secret
+          MONGODB_URI: mongodb://127.0.0.1:27017/syn-dashboard-ci
+          BOT_LOG_API_TOKEN: ci-placeholder-bot-token

@@ -71,6 +71,31 @@ export async function getGuildSettings(guildId: string) {
   };
 }
 
+export async function getGuildSettingsSafe(guildId: string) {
+  try {
+    const settings = await getGuildSettings(guildId);
+    return {
+      settings,
+      error: null
+    };
+  } catch (error) {
+    console.error("Guild settings fetch failed:", error);
+    return {
+      settings: {
+        guildId,
+        prefix: "!",
+        ownerId: "",
+        adminRoleId: "",
+        logChannelId: "",
+        welcomeMessage: "Welcome to the server.",
+        modules: defaultModules
+      },
+      error:
+        "MongoDB could not return this server's saved settings right now. Check your database connection and Atlas network access."
+    };
+  }
+}
+
 export async function upsertGuildSettings(values: GuildSettingsValues) {
   await connectToDatabase();
 
@@ -141,4 +166,21 @@ export async function getGuildLogs(guildId: string, limit = 30) {
     >();
 
   return docs;
+}
+
+export async function getGuildLogsSafe(guildId: string, limit = 30) {
+  try {
+    const logs = await getGuildLogs(guildId, limit);
+    return {
+      logs,
+      error: null
+    };
+  } catch (error) {
+    console.error("Guild logs fetch failed:", error);
+    return {
+      logs: [] as Awaited<ReturnType<typeof getGuildLogs>>,
+      error:
+        "MongoDB could not return this server's logs right now. Check your database connection and Atlas network access."
+    };
+  }
 }

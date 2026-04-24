@@ -14,13 +14,5 @@ export function hasRequiredEnvVars() {
 }
 
 export function getAuthSecret() {
-  if (process.env.AUTH_SECRET) {
-    return process.env.AUTH_SECRET;
-  }
-
-  if (process.env.NODE_ENV !== "production") {
-    return "dev-only-secret-change-me";
-  }
-
-  return undefined;
+  return process.env.AUTH_SECRET;
 }

@@ -2,6 +2,17 @@
 
 Minimal Next.js MVP for a Discord bot dashboard.
 
+The primary app in this repository is the project root.
+The [syn-dashboard](/C:/Users/Marshall/OneDrive/Documents/Syn%20Software%20Admin/Syn%20Dashboard/syn-dashboard) folder is a separate experimental app and is not the main dashboard.
+
+## Repo safety
+
+- The root project is the deploy target for GitHub and Vercel.
+- `.env.local` is ignored and should never be committed.
+- `syn-dashboard/` is intentionally ignored by Vercel via `.vercelignore` so the nested app does not become the accidental deploy target.
+- GitHub Actions now runs lint and build checks on pushes and pull requests.
+- Dependabot is configured to watch root npm dependencies.
+
 ## Features
 
 - Discord OAuth login with `next-auth`
@@ -36,6 +47,12 @@ Make sure the app can request:
 npm install
 npm run dev
 ```
+
+## Deployment notes
+
+Use the repository root as the project root in your deployment platform.
+
+If any Discord, MongoDB, or bot API secrets were ever pushed to GitHub in the past, rotate them before production use even if the files are ignored now.
 
 ## Bot log ingestion
 
